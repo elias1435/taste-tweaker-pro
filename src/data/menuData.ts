@@ -37,14 +37,15 @@ const ramenToppings = {
   type: 'multiple' as const,
   required: false,
   minSelect: 0,
-  maxSelect: 3,
+  maxSelect: 6,
+  allowQuantity: true,
   options: [
-    { id: 'extra-egg', label: 'Extra Soft-Boiled Egg', priceDelta: 2 },
-    { id: 'extra-chashu', label: 'Extra Chashu Pork', priceDelta: 3 },
-    { id: 'corn', label: 'Sweet Corn', priceDelta: 1 },
-    { id: 'nori', label: 'Extra Nori (3pcs)', priceDelta: 1 },
-    { id: 'bamboo', label: 'Menma Bamboo Shoots', priceDelta: 1.5 },
-    { id: 'butter', label: 'Hokkaido Butter', priceDelta: 1 },
+    { id: 'extra-egg', label: 'Extra Soft-Boiled Egg', priceDelta: 2, maxQuantity: 3 },
+    { id: 'extra-chashu', label: 'Extra Chashu Pork', priceDelta: 3, maxQuantity: 3 },
+    { id: 'corn', label: 'Sweet Corn', priceDelta: 1, maxQuantity: 2 },
+    { id: 'nori', label: 'Extra Nori (3pcs)', priceDelta: 1, maxQuantity: 3 },
+    { id: 'bamboo', label: 'Menma Bamboo Shoots', priceDelta: 1.5, maxQuantity: 2 },
+    { id: 'butter', label: 'Hokkaido Butter', priceDelta: 1, maxQuantity: 2 },
   ],
 };
 
@@ -365,6 +366,7 @@ export const menuData: MenuData = {
           required: true,
           minSelect: 3,
           maxSelect: 3,
+          allowQuantity: false,
           options: [
             { id: 'matcha-mochi', label: 'Matcha', priceDelta: 0 },
             { id: 'strawberry', label: 'Strawberry', priceDelta: 0 },

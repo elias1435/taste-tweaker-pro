@@ -1,10 +1,10 @@
-import { Check } from 'lucide-react';
-import type { OptionGroup as OptionGroupType, MenuOption } from '@/types/menu';
+import { Check, Minus, Plus } from 'lucide-react';
+import type { OptionGroup as OptionGroupType, MenuOption, OptionSelection } from '@/types/menu';
 
 interface OptionGroupProps {
   group: OptionGroupType;
-  selectedOptions: string[];
-  onSelectionChange: (optionIds: string[]) => void;
+  selectedOptions: OptionSelection[];
+  onSelectionChange: (options: OptionSelection[]) => void;
   error?: string;
 }
 
@@ -14,20 +14,55 @@ export function OptionGroup({
   onSelectionChange,
   error 
 }: OptionGroupProps) {
+  const getOptionQuantity = (optionId: string) => {
+    return selectedOptions.find((o) => o.optionId === optionId)?.quantity || 0;
+  };
+
+  const getTotalSelectedCount = () => {
+    return selectedOptions.reduce((sum, o) => sum + o.quantity, 0);
+  };
+
   const handleOptionClick = (option: MenuOption) => {
     if (group.type === 'single') {
-      onSelectionChange([option.id]);
+      onSelectionChange([{ optionId: option.id, quantity: 1 }]);
     } else {
-      // Multiple selection
-      const isSelected = selectedOptions.includes(option.id);
+      const currentQty = getOptionQuantity(option.id);
       
-      if (isSelected) {
-        onSelectionChange(selectedOptions.filter((id) => id !== option.id));
+      if (currentQty > 0) {
+        // Remove option
+        onSelectionChange(selectedOptions.filter((o) => o.optionId !== option.id));
       } else {
-        // Check if we're at max
-        if (selectedOptions.length < group.maxSelect) {
-          onSelectionChange([...selectedOptions, option.id]);
+        // Add option with quantity 1
+        const totalCount = getTotalSelectedCount();
+        if (totalCount < group.maxSelect) {
+          onSelectionChange([...selectedOptions, { optionId: option.id, quantity: 1 }]);
         }
+      }
+    }
+  };
+
+  const handleQuantityChange = (option: MenuOption, newQuantity: number) => {
+    const maxPerOption = option.maxQuantity || 5;
+    const currentQty = getOptionQuantity(option.id);
+    const totalCount = getTotalSelectedCount();
+    const otherCount = totalCount - currentQty;
+    
+    // Calculate the max we can set based on group max
+    const maxAllowed = Math.min(maxPerOption, group.maxSelect - otherCount);
+    const clampedQty = Math.max(0, Math.min(newQuantity, maxAllowed));
+    
+    if (clampedQty === 0) {
+      onSelectionChange(selectedOptions.filter((o) => o.optionId !== option.id));
+    } else {
+      const existing = selectedOptions.find((o) => o.optionId === option.id);
+      if (existing) {
+        onSelectionChange(
+          selectedOptions.map((o) => 
+            o.optionId === option.id ? { ...o, quantity: clampedQty } : o
+          )
+        );
+      } else {
+        onSelectionChange([...selectedOptions, { optionId: option.id, quantity: clampedQty }]);
       }
     }
   };
@@ -35,12 +70,14 @@ export function OptionGroup({
   const isOptionDisabled = (optionId: string) => {
     if (group.type === 'single') return false;
     
-    // Disable if at max and this option is not selected
-    return (
-      selectedOptions.length >= group.maxSelect && 
-      !selectedOptions.includes(optionId)
-    );
+    const currentQty = getOptionQuantity(optionId);
+    const totalCount = getTotalSelectedCount();
+    
+    // Disable if at max and this option has 0 quantity
+    return totalCount >= group.maxSelect && currentQty === 0;
   };
+
+  const showQuantityControls = group.type === 'multiple' && group.allowQuantity !== false;
 
   return (
     <div className="space-y-3">
@@ -56,47 +93,87 @@ export function OptionGroup({
             {group.minSelect > 0 && `Min ${group.minSelect}`}
             {group.minSelect > 0 && group.maxSelect > 0 && ' • '}
             {group.maxSelect > 0 && `Max ${group.maxSelect}`}
-            {selectedOptions.length > 0 && ` (${selectedOptions.length} selected)`}
+            {getTotalSelectedCount() > 0 && ` (${getTotalSelectedCount()} selected)`}
           </span>
         )}
       </div>
       
       <div className="space-y-2">
         {group.options.map((option) => {
-          const isSelected = selectedOptions.includes(option.id);
+          const quantity = getOptionQuantity(option.id);
+          const isSelected = quantity > 0;
           const isDisabled = isOptionDisabled(option.id);
+          const maxPerOption = option.maxQuantity || 5;
+          const totalCount = getTotalSelectedCount();
+          const maxAllowed = Math.min(maxPerOption, group.maxSelect - totalCount + quantity);
           
           return (
-            <button
+            <div
               key={option.id}
-              type="button"
-              onClick={() => handleOptionClick(option)}
-              disabled={isDisabled}
-              className={`option-item w-full text-left ${
+              className={`option-item ${
                 isSelected ? 'option-item-selected' : ''
-              } ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-              aria-pressed={isSelected}
+              } ${isDisabled ? 'opacity-50' : ''}`}
             >
-              <div className={`w-5 h-5 rounded-${group.type === 'single' ? 'full' : 'md'} border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
-                isSelected 
-                  ? 'bg-primary border-primary' 
-                  : 'border-muted-foreground/40'
-              }`}>
-                {isSelected && (
-                  <Check className="w-3 h-3 text-primary-foreground" />
-                )}
-              </div>
+              {/* Checkbox/Radio button area */}
+              <button
+                type="button"
+                onClick={() => handleOptionClick(option)}
+                disabled={isDisabled}
+                className="flex items-center gap-3 flex-1 text-left"
+                aria-pressed={isSelected}
+              >
+                <div className={`w-5 h-5 rounded-${group.type === 'single' ? 'full' : 'md'} border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                  isSelected 
+                    ? 'bg-primary border-primary' 
+                    : 'border-muted-foreground/40'
+                }`}>
+                  {isSelected && (
+                    <Check className="w-3 h-3 text-primary-foreground" />
+                  )}
+                </div>
+                
+                <span className="flex-1 font-medium">{option.label}</span>
+              </button>
               
-              <span className="flex-1 font-medium">{option.label}</span>
+              {/* Quantity controls for multiple select */}
+              {showQuantityControls && isSelected && (
+                <div className="flex items-center gap-1 mr-2">
+                  <button
+                    type="button"
+                    onClick={() => handleQuantityChange(option, quantity - 1)}
+                    className="w-7 h-7 rounded-md bg-secondary hover:bg-secondary/80 flex items-center justify-center transition-colors"
+                    aria-label="Decrease quantity"
+                  >
+                    <Minus className="w-3 h-3" />
+                  </button>
+                  <span className="w-6 text-center font-medium text-sm tabular-nums">
+                    {quantity}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleQuantityChange(option, quantity + 1)}
+                    disabled={quantity >= maxAllowed}
+                    className="w-7 h-7 rounded-md bg-secondary hover:bg-secondary/80 flex items-center justify-center transition-colors disabled:opacity-40"
+                    aria-label="Increase quantity"
+                  >
+                    <Plus className="w-3 h-3" />
+                  </button>
+                </div>
+              )}
               
               {option.priceDelta !== 0 && (
                 <span className={`text-sm font-medium ${
                   option.priceDelta > 0 ? 'text-primary' : 'text-badge-vegan'
                 }`}>
                   {option.priceDelta > 0 ? '+' : ''}${option.priceDelta.toFixed(2)}
+                  {showQuantityControls && isSelected && quantity > 1 && (
+                    <span className="text-muted-foreground ml-1">
+                      (×{quantity})
+                    </span>
+                  )}
                 </span>
               )}
-            </button>
+            </div>
           );
         })}
       </div>
