@@ -38,8 +38,12 @@ export function CartDrawer({
     cartItem.selections.forEach((selection) => {
       const group = menuItem.optionGroups.find((g) => g.id === selection.groupId);
       if (group) {
-        const optionLabels = selection.optionIds
-          .map((optId) => group.options.find((o) => o.id === optId)?.label)
+        const optionLabels = selection.options
+          .map((sel) => {
+            const option = group.options.find((o) => o.id === sel.optionId);
+            if (!option) return null;
+            return sel.quantity > 1 ? `${option.label} ×${sel.quantity}` : option.label;
+          })
           .filter(Boolean);
         if (optionLabels.length > 0) {
           summaries.push(optionLabels.join(', '));

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { X } from 'lucide-react';
-import type { MenuItem, CartItem, CartItemSelection } from '@/types/menu';
+import type { MenuItem, CartItem, CartItemSelection, OptionSelection } from '@/types/menu';
 import { DietaryBadgeComponent } from './DietaryBadge';
 import { QuantityStepper } from './QuantityStepper';
 import { OptionGroup } from './OptionGroup';
@@ -25,7 +25,7 @@ export function ItemModal({
   onUpdateCart
 }: ItemModalProps) {
   const [quantity, setQuantity] = useState(1);
-  const [selections, setSelections] = useState<Map<string, string[]>>(new Map());
+  const [selections, setSelections] = useState<Map<string, OptionSelection[]>>(new Map());
   const [notes, setNotes] = useState('');
   const [errors, setErrors] = useState<Map<string, string>>(new Map());
 
@@ -34,9 +34,9 @@ export function ItemModal({
     if (isOpen) {
       if (editingItem) {
         setQuantity(editingItem.quantity);
-        const selMap = new Map<string, string[]>();
+        const selMap = new Map<string, OptionSelection[]>();
         editingItem.selections.forEach((sel) => {
-          selMap.set(sel.groupId, sel.optionIds);
+          selMap.set(sel.groupId, sel.options);
         });
         setSelections(selMap);
         setNotes(editingItem.notes || '');
@@ -68,10 +68,10 @@ export function ItemModal({
     };
   }, [isOpen, onClose]);
 
-  const handleSelectionChange = useCallback((groupId: string, optionIds: string[]) => {
+  const handleSelectionChange = useCallback((groupId: string, options: OptionSelection[]) => {
     setSelections((prev) => {
       const next = new Map(prev);
-      next.set(groupId, optionIds);
+      next.set(groupId, options);
       return next;
     });
     
@@ -88,11 +88,11 @@ export function ItemModal({
     let total = item.basePrice;
     
     item.optionGroups.forEach((group) => {
-      const selectedIds = selections.get(group.id) || [];
-      selectedIds.forEach((optionId) => {
-        const option = group.options.find((o) => o.id === optionId);
+      const selectedOptions = selections.get(group.id) || [];
+      selectedOptions.forEach((sel) => {
+        const option = group.options.find((o) => o.id === sel.optionId);
         if (option) {
-          total += option.priceDelta;
+          total += option.priceDelta * sel.quantity;
         }
       });
     });
@@ -105,9 +105,10 @@ export function ItemModal({
     const newErrors = new Map<string, string>();
     
     item.optionGroups.forEach((group) => {
-      const selectedIds = selections.get(group.id) || [];
+      const selectedOptions = selections.get(group.id) || [];
+      const totalCount = selectedOptions.reduce((sum, o) => sum + o.quantity, 0);
       
-      if (group.required && selectedIds.length < group.minSelect) {
+      if (group.required && totalCount < group.minSelect) {
         newErrors.set(
           group.id, 
           group.minSelect === 1 
@@ -124,8 +125,9 @@ export function ItemModal({
   const isValid = useMemo(() => {
     return item.optionGroups.every((group) => {
       if (!group.required) return true;
-      const selectedIds = selections.get(group.id) || [];
-      return selectedIds.length >= group.minSelect;
+      const selectedOptions = selections.get(group.id) || [];
+      const totalCount = selectedOptions.reduce((sum, o) => sum + o.quantity, 0);
+      return totalCount >= group.minSelect;
     });
   }, [item.optionGroups, selections]);
 
@@ -133,9 +135,9 @@ export function ItemModal({
     if (!validate()) return;
     
     const cartSelections: CartItemSelection[] = [];
-    selections.forEach((optionIds, groupId) => {
-      if (optionIds.length > 0) {
-        cartSelections.push({ groupId, optionIds });
+    selections.forEach((options, groupId) => {
+      if (options.length > 0) {
+        cartSelections.push({ groupId, options });
       }
     });
 
@@ -219,7 +221,7 @@ export function ItemModal({
                 key={group.id}
                 group={group}
                 selectedOptions={selections.get(group.id) || []}
-                onSelectionChange={(optionIds) => handleSelectionChange(group.id, optionIds)}
+                onSelectionChange={(options) => handleSelectionChange(group.id, options)}
                 error={errors.get(group.id)}
               />
             ))}
