@@ -102,78 +102,95 @@ export function OptionGroup({
         {group.options.map((option) => {
           const quantity = getOptionQuantity(option.id);
           const isSelected = quantity > 0;
-          const isDisabled = isOptionDisabled(option.id);
           const maxPerOption = option.maxQuantity || 5;
           const totalCount = getTotalSelectedCount();
           const maxAllowed = Math.min(maxPerOption, group.maxSelect - totalCount + quantity);
+          const canIncrease = quantity < maxAllowed;
           
-          return (
-            <div
-              key={option.id}
-              className={`option-item ${
-                isSelected ? 'option-item-selected' : ''
-              } ${isDisabled ? 'opacity-50' : ''}`}
-            >
-              {/* Checkbox/Radio button area */}
-              <button
-                type="button"
-                onClick={() => handleOptionClick(option)}
-                disabled={isDisabled}
-                className="flex items-center gap-3 flex-1 text-left"
-                aria-pressed={isSelected}
+          // For quantity-enabled multiple select groups, show +/- for each option
+          if (showQuantityControls) {
+            return (
+              <div
+                key={option.id}
+                className={`option-item ${isSelected ? 'option-item-selected' : ''}`}
               >
-                <div className={`w-5 h-5 rounded-${group.type === 'single' ? 'full' : 'md'} border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
-                  isSelected 
-                    ? 'bg-primary border-primary' 
-                    : 'border-muted-foreground/40'
-                }`}>
-                  {isSelected && (
-                    <Check className="w-3 h-3 text-primary-foreground" />
-                  )}
-                </div>
-                
                 <span className="flex-1 font-medium">{option.label}</span>
-              </button>
-              
-              {/* Quantity controls for multiple select */}
-              {showQuantityControls && isSelected && (
-                <div className="flex items-center gap-1 mr-2">
+                
+                {/* Quantity controls */}
+                <div className="flex items-center gap-1">
                   <button
                     type="button"
                     onClick={() => handleQuantityChange(option, quantity - 1)}
-                    className="w-7 h-7 rounded-md bg-secondary hover:bg-secondary/80 flex items-center justify-center transition-colors"
+                    disabled={quantity <= 0}
+                    className="w-8 h-8 rounded-md bg-secondary hover:bg-secondary/80 flex items-center justify-center transition-colors disabled:opacity-40"
                     aria-label="Decrease quantity"
                   >
                     <Minus className="w-3 h-3" />
                   </button>
-                  <span className="w-6 text-center font-medium text-sm tabular-nums">
+                  <span className="w-8 text-center font-medium text-sm tabular-nums">
                     {quantity}
                   </span>
                   <button
                     type="button"
                     onClick={() => handleQuantityChange(option, quantity + 1)}
-                    disabled={quantity >= maxAllowed}
-                    className="w-7 h-7 rounded-md bg-secondary hover:bg-secondary/80 flex items-center justify-center transition-colors disabled:opacity-40"
+                    disabled={!canIncrease}
+                    className="w-8 h-8 rounded-md bg-secondary hover:bg-secondary/80 flex items-center justify-center transition-colors disabled:opacity-40"
                     aria-label="Increase quantity"
                   >
                     <Plus className="w-3 h-3" />
                   </button>
                 </div>
-              )}
+                
+                {option.priceDelta !== 0 && (
+                  <span className={`text-sm font-medium min-w-[60px] text-right ${
+                    option.priceDelta > 0 ? 'text-primary' : 'text-badge-vegan'
+                  }`}>
+                    {option.priceDelta > 0 ? '+' : ''}${option.priceDelta.toFixed(2)}
+                    {quantity > 1 && (
+                      <span className="text-muted-foreground ml-1">
+                        ×{quantity}
+                      </span>
+                    )}
+                  </span>
+                )}
+              </div>
+            );
+          }
+          
+          // Standard checkbox/radio for single select or non-quantity multiple select
+          const isDisabled = isOptionDisabled(option.id);
+          
+          return (
+            <button
+              key={option.id}
+              type="button"
+              onClick={() => handleOptionClick(option)}
+              disabled={isDisabled}
+              className={`option-item w-full text-left ${
+                isSelected ? 'option-item-selected' : ''
+              } ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+              aria-pressed={isSelected}
+            >
+              <div className={`w-5 h-5 rounded-${group.type === 'single' ? 'full' : 'md'} border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                isSelected 
+                  ? 'bg-primary border-primary' 
+                  : 'border-muted-foreground/40'
+              }`}>
+                {isSelected && (
+                  <Check className="w-3 h-3 text-primary-foreground" />
+                )}
+              </div>
+              
+              <span className="flex-1 font-medium">{option.label}</span>
               
               {option.priceDelta !== 0 && (
                 <span className={`text-sm font-medium ${
                   option.priceDelta > 0 ? 'text-primary' : 'text-badge-vegan'
                 }`}>
                   {option.priceDelta > 0 ? '+' : ''}${option.priceDelta.toFixed(2)}
-                  {showQuantityControls && isSelected && quantity > 1 && (
-                    <span className="text-muted-foreground ml-1">
-                      (×{quantity})
-                    </span>
-                  )}
                 </span>
               )}
-            </div>
+            </button>
           );
         })}
       </div>
