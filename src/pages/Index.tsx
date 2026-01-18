@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import heroRamen from '@/assets/hero-ramen.jpg';
-import { menuData } from '@/data/menuData';
+import { useMenuDataContext } from '@/contexts/MenuDataContext';
 import { useCartContext } from '@/contexts/CartContext';
 import { CategoryNav } from '@/components/CategoryNav';
 import { MenuCard } from '@/components/MenuCard';
@@ -11,7 +11,9 @@ import { CheckoutSuccess } from '@/components/CheckoutSuccess';
 import type { MenuItem, CartItem } from '@/types/menu';
 
 const Index = () => {
-  const [activeCategory, setActiveCategory] = useState(menuData.categories[0].id);
+  const { menuData, isLoading, source } = useMenuDataContext();
+  
+  const [activeCategory, setActiveCategory] = useState(menuData.categories[0]?.id || '');
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [editingCartItem, setEditingCartItem] = useState<CartItem | undefined>();
@@ -22,6 +24,13 @@ const Index = () => {
   const observerRef = useRef<IntersectionObserver | null>(null);
 
   const { items, addItem, updateItem, removeItem, clearCart, itemCount, subtotal } = useCartContext();
+  
+  // Update active category when menuData changes
+  useEffect(() => {
+    if (menuData.categories.length > 0 && !activeCategory) {
+      setActiveCategory(menuData.categories[0].id);
+    }
+  }, [menuData.categories, activeCategory]);
 
   // Set up intersection observer for category tracking
   useEffect(() => {
@@ -74,7 +83,7 @@ const Index = () => {
       setSelectedItem(menuItem);
       setIsCartOpen(false);
     }
-  }, []);
+  }, [menuData.items]);
 
   const handleUpdateQuantity = useCallback((id: string, quantity: number, newTotal: number) => {
     updateItem(id, { quantity, totalPrice: newTotal });
